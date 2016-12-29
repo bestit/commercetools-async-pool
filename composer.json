@@ -1,0 +1,21 @@
+{
+    "authors": [
+        {
+            "name": "Björn Lange",
+            "email": "code@b3nl.de"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "BestIt\\CTAsyncPool\\": "src/"
+        }
+    },
+    "description": "Batch-Processing of a pool asynchronous commercetools requests.",
+    "license": "MIT",
+    "minimum-stability": "RC",
+    "name": "bestit/commercetools-async-pool",
+    "require": {
+        "commercetools/php-sdk": "^1.4",
+        "php": "^7.0"
+    }
+}
