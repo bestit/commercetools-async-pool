@@ -12,7 +12,7 @@
     },
     "description": "Batch-Processing of a pool asynchronous commercetools requests.",
     "license": "MIT",
-    "minimum-stability": "RC",
+    "minimum-stability": "stable",
     "name": "bestit/commercetools-async-pool",
     "require": {
         "commercetools/php-sdk": "^1.4",
