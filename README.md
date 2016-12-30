@@ -39,6 +39,5 @@ $pool->flush();
 **But beware, do not forget that the callbacks are happening asynchronous! That is no sequential PHP anymore!**
 
 ## Future
-
-# Get a more native promise API!
-# Unittests
+* Get a more native promise API!
+* Unittests
