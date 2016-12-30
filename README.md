@@ -16,9 +16,7 @@ So i created a helping pool of async requests. Please review the following infor
     
 ## API and Usage
 
-```
-#!php
-
+```php
 $pool = new Pool($this->getClient(), 25);
 
 $pool->addPromise(
