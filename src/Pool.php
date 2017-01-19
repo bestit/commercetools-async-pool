@@ -3,7 +3,12 @@
 namespace BestIt\CTAsyncPool;
 
 use Commercetools\Core\Client;
+use Commercetools\Core\Error\ApiException;
 use Commercetools\Core\Request\ClientRequestInterface;
+use Commercetools\Core\Response\ApiResponseInterface;
+use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Promise as Promise;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Collects the promises.
@@ -14,18 +19,6 @@ use Commercetools\Core\Request\ClientRequestInterface;
 class Pool implements PoolInterface
 {
     /**
-     * This key is used to fetch the reject callback from the promise array.
-     * @var string
-     */
-    const PROMISE_KEY_REJECT = 'onReject';
-
-    /**
-     * This key is used to fetch the resolve callback from the promise array.
-     * @var string
-     */
-    const PROMISE_KEY_RESOLVE = 'onResolve';
-
-    /**
      * The commercetools client.
      * @var Client
      */
@@ -33,7 +26,7 @@ class Pool implements PoolInterface
 
     /**
      * The promise pool.
-     * @var array ['onResolve' => Success-Callback, 'onReject' => Reject-Callback]
+     * @var ApiResponseInterface[]
      */
     private $promises = [];
 
@@ -74,22 +67,38 @@ class Pool implements PoolInterface
      * @param ClientRequestInterface $request
      * @param callable|void $onResolve Callback on the successful response.
      * @param callable|void $onReject Callback for an error.
-     * @return void
+     * @return PoolInterface
      */
-    public function addPromise(ClientRequestInterface $request, callable $onResolve = null, callable $onReject = null)
-    {
-        // The identifier can not be used otherwise.
-        $request->setIdentifier($identifier = spl_object_hash($request));
-
-        $this->getClient()->addBatchRequest($request);
-
-        $this->promises[$identifier] = [self::PROMISE_KEY_RESOLVE => $onResolve, self::PROMISE_KEY_REJECT => $onReject];
+    public function addPromise(
+        ClientRequestInterface $request,
+        callable $onResolve = null,
+        callable $onReject = null
+    ): PoolInterface {
+        $this->promises[$request->getIdentifier()] =
+            $this->createStartingPromise($request)->then($onResolve, $onReject);
 
         if (count($this) >= $this->getTicks()) {
             $this->flush();
         }
 
         return $this;
+    }
+
+    /**
+     * Makes a ctp response out of the default async response and returns the promise for the next chaining level.
+     * @param ClientRequestInterface $request
+     * @return ApiResponseInterface
+     */
+    private function createStartingPromise(ClientRequestInterface $request): ApiResponseInterface
+    {
+        return $this->getClient()->executeAsync($request)->then(
+            function (ResponseInterface $response) use ($request) {
+                return $request->mapFromResponse($request->buildResponse($response));
+            },
+            function (RequestException $exception) {
+                return ApiException::create($exception->getRequest(), $exception->getResponse(), $exception);
+            }
+        );
     }
 
     /**
@@ -110,20 +119,7 @@ class Pool implements PoolInterface
         // Prevent an endless loop and work on a batch copy.
         $promises = $this->getPromises();
         $this->setPromises([]);
-
-        foreach ($this->getClient()->executeBatch() as $identifier => $response) {
-            $promise = $promises[$identifier];
-
-            if ($response->isError()) {
-                if ($promise[self::PROMISE_KEY_REJECT]) {
-                    call_user_func($promise[self::PROMISE_KEY_REJECT], $response);
-                }
-            } else {
-                if ($promise[self::PROMISE_KEY_RESOLVE]) {
-                    call_user_func($promise[self::PROMISE_KEY_RESOLVE], $response->toObject());
-                }
-            }
-        }
+        Promise\settle($promises)->wait();
     }
 
     /**

@@ -19,7 +19,6 @@ interface PoolInterface extends Countable
      */
     const DEFAULT_TICKS = 100;
 
-
     /**
      * Adds a promise to this pool.
      *
@@ -30,9 +29,14 @@ interface PoolInterface extends Countable
      * @param ClientRequestInterface $request
      * @param callable|void $onResolve Callback on the successful response.
      * @param callable|void $onReject Callback for an error.
-     * @return void
+     * @return PoolInterface
      */
-    public function addPromise(ClientRequestInterface $request, callable $onResolve = null, callable $onReject = null);
+    public function addPromise(
+        ClientRequestInterface $request,
+        callable $onResolve = null,
+        callable $onReject =
+        null
+    ): PoolInterface;
 
     /**
      * Flushes the collected pull of promises.
