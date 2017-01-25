@@ -10,6 +10,11 @@
             "BestIt\\CTAsyncPool\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "BestIt\\CTAsyncPool\\Tests\\": "tests/"
+        }
+    },
     "description": "Batch-Processing of a pool asynchronous commercetools requests.",
     "license": "MIT",
     "minimum-stability": "stable",
@@ -17,5 +22,8 @@
     "require": {
         "commercetools/php-sdk": "^1.4",
         "php": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.7"
     }
 }
