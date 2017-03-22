@@ -114,6 +114,7 @@ class Pool implements PoolInterface
         // Prevent an endless loop and work on a batch copy.
         $promises = $this->getPromises();
         $this->setPromises([]);
+
         Promise\settle($promises)->wait();
     }
 
