@@ -18,7 +18,7 @@ use Psr\Http\Message\ResponseInterface;
  * @author blange <lange@bestit-online.de>
  * @category Tests
  * @package BestIt\CTAsyncPool
- * @todo Add more testing.
+ * @todo Test resolving of the promises with a guzzle mock handler.
  * @version $id$
  */
 class PoolTest extends TestCase
@@ -37,30 +37,42 @@ class PoolTest extends TestCase
 
     /**
      * Returns an "async-mocked" request.
+     * @param bool $resolvesPromise Should the promise be resolved?
      * @return PHPUnit_Framework_MockObject_MockObject
      */
-    private function getMockedRequest(): PHPUnit_Framework_MockObject_MockObject
+    private function getMockedRequest(bool $resolvesPromise = false): PHPUnit_Framework_MockObject_MockObject
     {
+        $request = static::createMock(CustomerQueryRequest::class);
+
         $this->client
             ->method('executeAsync')
-            ->with($request = static::createMock(CustomerQueryRequest::class))
+            ->with($request)
             ->will($this->returnValue($response1 = static::createMock(ApiResponseInterface::class)));
 
         $response2 = static::createMock(ResponseInterface::class);
 
         $request
+            ->expects(!$resolvesPromise ? static::any() : static::once())
             ->method('buildResponse')
             ->with($response2)
             ->willReturn($response3 = static::createMock(PagedQueryResponse::class));
 
         $request
-            ->method('mapResponse')
+            ->expects(!$resolvesPromise ? static::any() : static::once())
+            ->method('mapFromResponse')
             ->with($response3)
             ->willReturn($response4 = static::createMock(CustomerCollection::class));
 
         $response1
+            ->expects(!$resolvesPromise ? static::any() : static::once())
             ->method('then')
+            ->with($this->callback(function (callable $callback) use ($response2) {
+                static::assertInstanceOf(CustomerCollection::class, $callback($response2));
+
+                return true;
+            }))
             ->willReturn($response3);
+
         return $request;
     }
 
