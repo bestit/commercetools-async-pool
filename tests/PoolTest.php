@@ -86,12 +86,21 @@ class PoolTest extends TestCase
     }
 
     /**
+     * Checks that the promise is returned, if we want to use chaining.
+     * @return void
+     */
+    public function testAddPromiseFluentWithChaining()
+    {
+        static::assertInstanceOf(PagedQueryResponse::class, $this->fixture->addPromise($this->getMockedRequest()));
+    }
+
+    /**
      * Checks the fluent interface of the pool object.
      * @return void
      */
-    public function testAddPromiseFluent()
+    public function testAddPromiseFluentWithoutChaining()
     {
-        static::assertSame($this->fixture, $this->fixture->addPromise($this->getMockedRequest()));
+        static::assertSame($this->fixture, $this->fixture->addPromise($this->getMockedRequest(), false));
     }
 
     /**
@@ -104,7 +113,7 @@ class PoolTest extends TestCase
 
         static::assertCount(0, $this->fixture, 'The empty pool should return 0.');
 
-        $this->fixture->addPromise($this->getMockedRequest());
+        $this->fixture->addPromise($this->getMockedRequest(), false);
 
         static::assertCount(0, $this->fixture, 'There should be no promises after flush.');
     }
@@ -115,9 +124,11 @@ class PoolTest extends TestCase
      */
     public function testAddPromiseWaitOnFlush()
     {
+        $this->fixture = new Pool($this->client = static::createMock(Client::class), 2);
+
         static::assertCount(0, $this->fixture, 'The empty pool should return 0.');
 
-        $this->fixture->addPromise($this->getMockedRequest());
+        $this->fixture->addPromise($this->getMockedRequest(), false);
 
         static::assertCount(1, $this->fixture, 'We added on promise to the pool.');
 
@@ -158,14 +169,5 @@ class PoolTest extends TestCase
     public function testInterface()
     {
         static::assertInstanceOf(PoolInterface::class, $this->fixture);
-    }
-
-    /**
-     * Checks the declared constant.
-     * @return void
-     */
-    public function testTickConstant()
-    {
-        static::assertSame(100, Pool::DEFAULT_TICKS);
     }
 }

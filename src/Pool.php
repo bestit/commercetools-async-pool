@@ -49,7 +49,7 @@ class Pool implements PoolInterface
      * @param Client $client
      * @param int $ticks
      */
-    public function __construct(Client $client, $ticks = self::DEFAULT_TICKS)
+    public function __construct(Client $client, $ticks = -1)
     {
         $this
             ->setClient($client)
@@ -60,23 +60,17 @@ class Pool implements PoolInterface
     /**
      * Adds a promise to this pool.
      * @param ClientRequestInterface $request
-     * @param callable|void $onResolve Callback on the successful response.
-     * @param callable|void $onReject Callback for an error.
-     * @return PoolInterface
+     * @return PoolInterface|ApiResponseInterface
      */
-    public function addPromise(
-        ClientRequestInterface $request,
-        callable $onResolve = null,
-        callable $onReject = null
-    ): PoolInterface {
-        $this->promises[$request->getIdentifier()] =
-            $this->createStartingPromise($request)->then($onResolve, $onReject);
+    public function addPromise(ClientRequestInterface $request, bool $forChaining = true) {
+        $return = $this->promises[$request->getIdentifier()] = $this->createStartingPromise($request);
 
-        if (count($this) >= $this->getTicks()) {
-            $this->flush();
+        if (!$forChaining) {
+            $this->flushOnOverflow();
+            $return = $this;
         }
 
-        return $this;
+        return $return;
     }
 
     /**
@@ -114,8 +108,20 @@ class Pool implements PoolInterface
         // Prevent an endless loop and work on a batch copy.
         $promises = $this->getPromises();
         $this->setPromises([]);
-
         Promise\settle($promises)->wait();
+    }
+
+    /**
+     * Flushes the pool of promises if we overflow the tick limit.
+     * @return void
+     */
+    private function flushOnOverflow()
+    {
+        $ticks = $this->getTicks();
+
+        if ($ticks > -1 && count($this) >= $ticks) {
+            $this->flush();
+        }
     }
 
     /**
