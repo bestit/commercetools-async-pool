@@ -17,10 +17,9 @@ So i created a helping pool of async requests. Please review the following infor
 ## API and Usage
 
 ```php
-$pool = new Pool($this->getClient(), 25);
+$pool = new Pool($this->getClient());
 
-$pool->addPromise(
-    ProductTypeByIdGetRequest::ofId('example'),
+$pool->addPromise(ProductTypeByIdGetRequest::ofId('example')).then(
     // Success
     function(ProductType $productType) use ($userdata) {          
         echo $productType->getId();
@@ -30,6 +29,9 @@ $pool->addPromise(
         echo $error->getStatusCode();    
     }
 );
+//.then(/* chained callbacks */)
+//.then()
+// ....
 
 // Gets flushed automatically, if we overflow the tick rate from the constructor.
 $pool->flush();
@@ -39,5 +41,4 @@ $pool->flush();
 **But beware, do not forget that the callbacks are happening asynchronous! That is no sequential PHP anymore!**
 
 ## Future
-* Get a more native promise API!
-* Unittests
+* More Unittests
