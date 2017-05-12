@@ -9,6 +9,8 @@ use Commercetools\Core\Model\Customer\CustomerCollection;
 use Commercetools\Core\Request\Customers\CustomerQueryRequest;
 use Commercetools\Core\Response\ApiResponseInterface;
 use Commercetools\Core\Response\PagedQueryResponse;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
 use PHPUnit\Framework\TestCase;
 use PHPUnit_Framework_MockObject_MockObject;
 use Psr\Http\Message\ResponseInterface;
@@ -77,6 +79,33 @@ class PoolTest extends TestCase
     }
 
     /**
+     * Ceates a test client with the given responses.
+     * @param array $responses
+     * @return PHPUnit_Framework_MockObject_MockObject
+     */
+    protected function getTestClient(array $responses)
+    {
+        $authMock = $this->createPartialMock(Client\OAuth\Manager::class, ['getToken']);
+        $authMock
+            ->method('getToken')
+            ->will($this->returnValue(new Client\OAuth\Token(uniqid())));
+
+        /** @var Client|PHPUnit_Framework_MockObject_MockObject $client */
+        $client = $this->createPartialMock(Client::class, ['getOauthManager']);
+        $client
+            ->method('getOauthManager')
+            ->will($this->returnValue($authMock));
+
+        $mock = new MockHandler($responses);
+
+        $handler = HandlerStack::create($mock);
+        $client->getHttpClient(['handler' => $handler]);
+        $client->getOauthManager()->getHttpClient(['handler' => $handler]);
+
+        return $client;
+    }
+
+    /**
      * Sets up the test.
      * @return void
      */
@@ -89,52 +118,9 @@ class PoolTest extends TestCase
      * Checks that the promise is returned, if we want to use chaining.
      * @return void
      */
-    public function testAddPromiseFluentWithChaining()
+    public function testAddPromiseFluent()
     {
         static::assertInstanceOf(PagedQueryResponse::class, $this->fixture->addPromise($this->getMockedRequest()));
-    }
-
-    /**
-     * Checks the fluent interface of the pool object.
-     * @return void
-     */
-    public function testAddPromiseFluentWithoutChaining()
-    {
-        static::assertSame($this->fixture, $this->fixture->addPromise($this->getMockedRequest(), false));
-    }
-
-    /**
-     * Checks if the pool flushes after the tick rate is overflowed.
-     * @return void
-     */
-    public function testAddPromiseNoWaitOnFlush()
-    {
-        $this->fixture = new Pool($this->client = static::createMock(Client::class), 1);
-
-        static::assertCount(0, $this->fixture, 'The empty pool should return 0.');
-
-        $this->fixture->addPromise($this->getMockedRequest(), false);
-
-        static::assertCount(0, $this->fixture, 'There should be no promises after flush.');
-    }
-
-    /**
-     * Checks if the pool waits on the flush to clear its promises.
-     * @return void
-     */
-    public function testAddPromiseWaitOnFlush()
-    {
-        $this->fixture = new Pool($this->client = static::createMock(Client::class), 2);
-
-        static::assertCount(0, $this->fixture, 'The empty pool should return 0.');
-
-        $this->fixture->addPromise($this->getMockedRequest(), false);
-
-        static::assertCount(1, $this->fixture, 'We added on promise to the pool.');
-
-        $this->fixture->flush();
-
-        static::assertCount(0, $this->fixture, 'There should be no promises after flush.');
     }
 
     /**

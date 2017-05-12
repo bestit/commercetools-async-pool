@@ -31,12 +31,6 @@ class Pool implements PoolInterface
     private $promises = [];
 
     /**
-     * How many promises can be collected before the pool gets flushed.
-     * @var int
-     */
-    private $ticks = 0;
-
-    /**
      * Empties the pool on clone.
      */
     public function __clone()
@@ -47,28 +41,31 @@ class Pool implements PoolInterface
     /**
      * Pool constructor.
      * @param Client $client
-     * @param int $ticks
      */
-    public function __construct(Client $client, $ticks = -1)
+    public function __construct(Client $client)
     {
         $this
             ->setClient($client)
-            ->setPromises([])
-            ->setTicks($ticks);
+            ->setPromises([]);
     }
 
     /**
      * Adds a promise to this pool.
      * @param ClientRequestInterface $request
-     * @return PoolInterface|ApiResponseInterface
+     * @param callable $startingSuccessCallback Overwrite the starting success callback.
+     * @param callable $startingFailCallback Overwrite the failing success callback.
+     * @return ApiResponseInterface
      */
-    public function addPromise(ClientRequestInterface $request, bool $forChaining = true) {
-        $return = $this->promises[$request->getIdentifier()] = $this->createStartingPromise($request);
-
-        if (!$forChaining) {
-            $this->flushOnOverflow();
-            $return = $this;
-        }
+    public function addPromise(
+        ClientRequestInterface $request,
+        callable $startingSuccessCallback = null,
+        callable $startingFailCallback = null
+    ): ApiResponseInterface {
+        $return = $this->promises[$request->getIdentifier()] = $this->createStartingPromise(
+            $request,
+            $startingSuccessCallback,
+            $startingFailCallback
+        );
 
         return $return;
     }
@@ -76,18 +73,28 @@ class Pool implements PoolInterface
     /**
      * Makes a ctp response out of the default async response and returns the promise for the next chaining level.
      * @param ClientRequestInterface $request
+     * @param callable $startingSuccessCallback Overwrite the starting success callback.
+     * @param callable $startingFailCallback Overwrite the failing success callback.
      * @return ApiResponseInterface
      */
-    private function createStartingPromise(ClientRequestInterface $request): ApiResponseInterface
-    {
-        return $this->getClient()->executeAsync($request)->then(
-            function (ResponseInterface $response) use ($request) {
+    private function createStartingPromise(
+        ClientRequestInterface $request,
+        callable $startingSuccessCallback = null,
+        callable $startingFailCallback = null
+    ): ApiResponseInterface {
+        if (!$startingSuccessCallback) {
+            $startingSuccessCallback = function (ResponseInterface $response) use ($request) {
                 return $request->mapFromResponse($request->buildResponse($response));
-            },
-            function (RequestException $exception) {
+            };
+        }
+
+        if (!$startingFailCallback) {
+            $startingFailCallback = function (RequestException $exception) {
                 return ApiException::create($exception->getRequest(), $exception->getResponse(), $exception);
-            }
-        );
+            };
+        }
+
+        return $this->getClient()->executeAsync($request)->then($startingSuccessCallback, $startingFailCallback);
     }
 
     /**
@@ -112,19 +119,6 @@ class Pool implements PoolInterface
     }
 
     /**
-     * Flushes the pool of promises if we overflow the tick limit.
-     * @return void
-     */
-    private function flushOnOverflow()
-    {
-        $ticks = $this->getTicks();
-
-        if ($ticks > -1 && count($this) >= $ticks) {
-            $this->flush();
-        }
-    }
-
-    /**
      * Returns the commercetools client.
      * @return Client
      */
@@ -140,15 +134,6 @@ class Pool implements PoolInterface
     private function getPromises(): array
     {
         return $this->promises;
-    }
-
-    /**
-     * How many promises can be collected before the pool gets flushed.
-     * @return int
-     */
-    private function getTicks(): int
-    {
-        return $this->ticks;
     }
 
     /**
@@ -171,18 +156,6 @@ class Pool implements PoolInterface
     private function setPromises(array $promises): Pool
     {
         $this->promises = $promises;
-
-        return $this;
-    }
-
-    /**
-     * How many promises can be collected before the pool gets flushed.
-     * @param int $ticks
-     * @return Pool
-     */
-    private function setTicks(int $ticks): Pool
-    {
-        $this->ticks = $ticks;
 
         return $this;
     }
