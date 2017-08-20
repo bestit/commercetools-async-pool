@@ -20,7 +20,7 @@
     "minimum-stability": "stable",
     "name": "bestit/commercetools-async-pool",
     "require": {
-        "commercetools/php-sdk": "^1.4",
+        "commercetools/php-sdk": "^1.4 || ^2.0",
         "php": "^7.0"
     },
     "require-dev": {
